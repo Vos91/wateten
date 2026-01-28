@@ -1,5 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { Recipe } from "@/types";
+import { rateLimit, getClientIP } from "@/lib/rate-limit";
+
+// Rate limit config: 10 requests per minute per IP
+const RATE_LIMIT_CONFIG = {
+  maxRequests: 10,
+  windowMs: 60 * 1000, // 1 minute
+};
 
 const VIBE_DESCRIPTIONS: Record<string, string> = {
   quick: "Het recept moet HEEL snel klaar zijn, maximaal 10-15 minuten.",
@@ -155,6 +162,27 @@ function getMockRecipe(): Recipe {
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting
+    const clientIP = getClientIP(request);
+    const rateLimitResult = rateLimit(clientIP, RATE_LIMIT_CONFIG);
+
+    if (!rateLimitResult.success) {
+      return NextResponse.json(
+        { 
+          error: `Te veel verzoeken. Probeer het over ${rateLimitResult.resetIn} seconden opnieuw.`,
+          retryAfter: rateLimitResult.resetIn 
+        },
+        { 
+          status: 429,
+          headers: {
+            "Retry-After": rateLimitResult.resetIn.toString(),
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Reset": rateLimitResult.resetIn.toString(),
+          }
+        }
+      );
+    }
+
     const body = await request.json();
     const { vibes = [] } = body;
 
@@ -216,7 +244,14 @@ export async function POST(request: NextRequest) {
     }
 
     const recipe: Recipe = JSON.parse(jsonMatch[0]);
-    return NextResponse.json({ recipe });
+    return NextResponse.json(
+      { recipe },
+      {
+        headers: {
+          "X-RateLimit-Remaining": rateLimitResult.remaining.toString(),
+        }
+      }
+    );
   } catch (error) {
     console.error("Generate error:", error);
     return NextResponse.json(

@@ -39,7 +39,11 @@ export default function Home() {
       });
 
       if (!response.ok) {
-        throw new Error("Er ging iets mis bij het genereren");
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 429) {
+          throw new Error(errorData.error || "Te veel verzoeken. Wacht even en probeer opnieuw.");
+        }
+        throw new Error(errorData.error || "Er ging iets mis bij het genereren");
       }
 
       const data = await response.json();
