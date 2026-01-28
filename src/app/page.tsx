@@ -1,20 +1,32 @@
 "use client";
 
 import { useState } from "react";
-import { ProductInput } from "@/components/ProductInput";
 import { RecipeCard } from "@/components/RecipeCard";
 import { LoadingRecipe } from "@/components/LoadingRecipe";
 import type { Recipe } from "@/types";
 
+const VIBES = [
+  { id: "quick", emoji: "⚡", label: "Snel", desc: "< 15 min" },
+  { id: "healthy", emoji: "🥗", label: "Gezond", desc: "Light & fresh" },
+  { id: "comfort", emoji: "🍝", label: "Comfort", desc: "Feel good food" },
+  { id: "spicy", emoji: "🌶️", label: "Pittig", desc: "Met een kick" },
+  { id: "world", emoji: "🌍", label: "Wereld", desc: "Internationale keuken" },
+  { id: "budget", emoji: "💰", label: "Budget", desc: "Goedkoop & lekker" },
+];
+
 export default function Home() {
-  const [products, setProducts] = useState<string[]>([]);
+  const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const toggleVibe = (id: string) => {
+    setSelectedVibes((prev) =>
+      prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]
+    );
+  };
+
   const generateRecipe = async () => {
-    if (products.length === 0) return;
-    
     setLoading(true);
     setError(null);
     setRecipe(null);
@@ -23,7 +35,7 @@ export default function Home() {
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ products }),
+        body: JSON.stringify({ vibes: selectedVibes }),
       });
 
       if (!response.ok) {
@@ -40,9 +52,13 @@ export default function Home() {
   };
 
   const reset = () => {
-    setProducts([]);
     setRecipe(null);
     setError(null);
+  };
+
+  const newRecipe = () => {
+    setRecipe(null);
+    generateRecipe();
   };
 
   return (
@@ -54,7 +70,7 @@ export default function Home() {
             <span className="text-2xl">🍳</span>
             <h1 className="text-xl font-bold text-black">Wat Eten We?</h1>
           </div>
-          {(products.length > 0 || recipe) && (
+          {recipe && (
             <button
               onClick={reset}
               className="text-sm font-medium text-black/70 hover:text-black transition-colors"
@@ -66,26 +82,63 @@ export default function Home() {
       </header>
 
       <div className="max-w-lg mx-auto px-4 pt-6">
-        {/* Hero - only show when no recipe */}
-        {!recipe && !loading && (
-          <div className="text-center mb-8 animate-fade-in">
-            <h2 className="text-2xl font-bold mb-2">
-              Van Jumbo naar recept
-            </h2>
-            <p className="text-[--text-secondary]">
-              Voeg je producten toe en krijg een lekker recept
-            </p>
-          </div>
-        )}
-
-        {/* Product Input */}
+        {/* Main Content - only show when no recipe */}
         {!recipe && !loading && (
           <div className="animate-fade-in">
-            <ProductInput
-              products={products}
-              onProductsChange={setProducts}
-              onGenerate={generateRecipe}
-            />
+            {/* Hero */}
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold mb-2">
+                Geen zin om na te denken?
+              </h2>
+              <p className="text-[--text-secondary] text-lg">
+                Wij kiezen wel voor je.
+              </p>
+            </div>
+
+            {/* Vibe Selection */}
+            <div className="mb-8">
+              <p className="text-sm text-[--text-secondary] font-medium mb-3">
+                Optioneel: waar heb je zin in?
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {VIBES.map((vibe) => (
+                  <button
+                    key={vibe.id}
+                    onClick={() => toggleVibe(vibe.id)}
+                    className={`p-4 rounded-2xl text-left transition-all ${
+                      selectedVibes.includes(vibe.id)
+                        ? "bg-[#FFE100] shadow-md scale-[1.02]"
+                        : "bg-white hover:bg-gray-50 border border-gray-100"
+                    }`}
+                  >
+                    <span className="text-2xl">{vibe.emoji}</span>
+                    <div className="mt-2">
+                      <div className="font-semibold">{vibe.label}</div>
+                      <div className="text-xs text-[--text-secondary]">
+                        {vibe.desc}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Generate Button */}
+            <button
+              onClick={generateRecipe}
+              className="w-full py-5 bg-black text-white font-semibold text-xl rounded-2xl hover:bg-gray-800 active:scale-[0.98] transition-all shadow-lg shadow-black/10"
+            >
+              ✨ Verras me!
+            </button>
+
+            {selectedVibes.length > 0 && (
+              <button
+                onClick={() => setSelectedVibes([])}
+                className="w-full mt-3 py-2 text-[--text-secondary] text-sm"
+              >
+                Filters wissen
+              </button>
+            )}
           </div>
         )}
 
@@ -106,12 +159,21 @@ export default function Home() {
         )}
 
         {/* Recipe Result */}
-        {recipe && <RecipeCard recipe={recipe} />}
+        {recipe && (
+          <>
+            <RecipeCard recipe={recipe} />
+            <button
+              onClick={newRecipe}
+              className="w-full mt-6 py-4 bg-black text-white font-semibold text-lg rounded-2xl hover:bg-gray-800 active:scale-[0.98] transition-all"
+            >
+              🔄 Ander recept
+            </button>
+          </>
+        )}
 
         {/* Footer */}
-        <footer className="mt-12 text-center text-sm text-[--text-secondary]">
-          <p>Gemaakt met 🦊 door J-Vos</p>
-          <p className="mt-1 text-xs">Max 20 min • 1 persoon • Geen kaas</p>
+        <footer className="mt-12 text-center text-xs text-[--text-secondary]">
+          <p>Max 20 min • 1 persoon • Kaasvrij</p>
         </footer>
       </div>
     </main>
